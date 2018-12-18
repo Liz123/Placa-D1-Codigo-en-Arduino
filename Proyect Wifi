@@ -1,0 +1,134 @@
+#include <ESP8266WiFi.h>
+ 
+const char* ssid =  ""; 
+const char* password =  "";
+ 
+int motor1Pin1 = D3; // pin 2 en L293D IC
+int motor1Pin2 = D4; // pin 7 en L293D IC
+int enable1Pin = D6; // pin 1 en L293D IC
+int motor2Pin1 = D8; // pin 10 en L293D IC
+int motor2Pin2 = D9; // pin 15 en L293D IC
+int enable2Pin = D11; // pin 9 en L293D IC
+int state;
+int flag=0;        // El serial imprime una sola vez el estado
+int stateStop=0;
+
+WiFiServer server(80);
+void setup() {
+
+// Dejar los pines como salidas:
+    pinMode(motor1Pin1, OUTPUT);
+    pinMode(motor1Pin2, OUTPUT);
+    pinMode(enable1Pin, OUTPUT);
+    pinMode(motor2Pin1, OUTPUT);
+    pinMode(motor2Pin2, OUTPUT);
+    pinMode(enable2Pin, OUTPUT);
+
+    //  enable1Pin y enable2Pin HIGH para encender motor:
+    digitalWrite(enable1Pin, HIGH);
+    digitalWrite(enable2Pin, HIGH);
+
+    //  Inicializar comunicaciÃ³n serial en 9600 bits por segundo:
+    Serial.begin(9600);
+
+// Conectar a una red WiFi
+Serial.println();
+Serial.println();
+Serial.print("Connecting to ");
+Serial.println(ssid);
+WiFi.begin(ssid, password);
+while (WiFi.status() != WL_CONNECTED) {
+delay(500);
+Serial.print(".");
+}
+Serial.println("");
+Serial.println("WiFi connected");
+
+// Iniciar el Server
+server.begin();
+Serial.println("Server started");
+
+// Mostrar la direcciÃ³n IP
+Serial.print("Use this URL : ");
+Serial.print("http://");
+Serial.print(WiFi.localIP());
+Serial.println("/");
+}
+void loop() {
+// Verificar si el cliente estÃ¡ conectado
+WiFiClient client = server.available();
+if (!client) {
+return;
+}
+//  Esperar hasta que el cliente envÃ­e informaciÃ³n
+Serial.println("new client");
+while(!client.available()){
+delay(1);
+}
+//  Leer primera lÃ­nea de la respuesta
+String request = client.readStringUntil('\r');
+Serial.println(request);
+client.flush();
+
+  int value = LOW;
+  if (request.indexOf("/MOTOR=Abrir") != -1) {
+        digitalWrite(motor1Pin1, HIGH);
+        digitalWrite(motor1Pin2, LOW); 
+        digitalWrite(motor2Pin1, HIGH);
+        digitalWrite(motor2Pin2, LOW);
+        value = HIGH;
+  if(flag == 0){
+          Serial.println("Forward!");
+          flag=1;
+        }
+    }
+  if (request.indexOf("/MOTOR=Stop") != -1){
+         digitalWrite(motor1Pin1, LOW); 
+        digitalWrite(motor1Pin2, LOW); 
+    value = HIGH;
+    if(flag == 0){
+          Serial.println("STOP!");
+          flag=1;
+        }
+        stateStop=0;
+    }
+
+  else if(request.indexOf("/MOTOR=Reversa")!= -1){
+        digitalWrite(motor1Pin1, LOW); 
+        digitalWrite(motor1Pin2, HIGH);
+        digitalWrite(motor2Pin1, LOW);
+        digitalWrite(motor2Pin2, HIGH);
+        value = LOW;
+        if(flag == 0){
+          Serial.println("Reverse!");
+          flag=1;
+        }
+    }
+// Regresar la respuesta
+client.println("HTTP/1.1 200 OK");
+client.println("Content-Type: text/html");
+client.println(""); // No olvidar estÃ¡ lÃ­nea
+client.println("<!DOCTYPE HTML>");
+client.println("<html>");
+client.print("Motor pin is now: ");
+
+  if(value == HIGH) {
+    client.print("Abrir");  
+  } else {
+    client.print("Stop");
+    client.print("Reversa");
+  }
+
+client.println("<br><br>");
+client.println("Click <a href=\"/MOTOR=Abrir\">here</a> turn the MOTOR1 on pin 3 ABRIR<br>");
+client.println("Click <a href=\"/MOTOR=Abrir\">here</a> turn the MOTOR2 on pin 8 ABRIR<br>");
+client.println("Click <a href=\"/MOTOR=Stop\">here</a> turn the MOTOR1 on pin 3 DETENER<br>");
+client.println("Click <a href=\"/MOTOR=Stop\">here</a> turn the MOTOR2 on pin 8 DETENER<br>");
+client.println("Click <a href=\"/MOTOR=Reversa\">here</a> turn the MOTOR1 on pin 4 CERRAR<br>");
+client.println("Click <a href=\"/MOTOR=Reversa\">here</a> turn the MOTOR2 on pin 9 CERRAR<br>");
+
+client.println("</html>");
+delay(1);
+Serial.println("Client disconnected");
+Serial.println("");
+}
